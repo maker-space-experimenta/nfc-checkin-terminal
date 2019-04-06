@@ -1,0 +1,1 @@
+nfc-checkin-terminal
