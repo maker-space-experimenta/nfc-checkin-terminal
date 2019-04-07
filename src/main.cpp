@@ -3,10 +3,14 @@
 #include <Adafruit_PN532.h>
 #include <FastLED.h>
 
-
-#include <Wire.h>
 #include <ESP8266WiFi.h>
-#include <WiFiClient.h>
+#include <ESP8266WiFiMulti.h>
+
+#include <ESP8266HTTPClient.h>
+#include <WiFiClientSecureBearSSL.h>
+
+#include <config.h>
+
 
 // If using the breakout with SPI, define the pins for SPI communication.
 #define PN532_SCK  (14)
@@ -15,20 +19,73 @@
 #define PN532_SS   (15)
 
 #define PN532_IRQ   (2)
-#define PN532_RESET (3)  // Not connected by default on the NFC Shield
+#define PN532_RESET (3)
 
 #define LED_PIN     0
 #define NUM_LEDS    1
 #define BRIGHTNESS  64
 #define LED_TYPE    WS2811
 #define COLOR_ORDER GRB
+
+const char* ssid = CONFIG_WIFI_SSID;
+const char* password = CONFIG_WIFI_PASSWORD;
+const uint8_t fingerprint[20] = CONFIG_SSL_FINGERPRINT;
+const String server = CONFIG_BACKEND_URL;
+
+ESP8266WiFiMulti WiFiMulti;
 CRGB leds[NUM_LEDS];
-
-const char* ssid = "<<wifi-ssid>>";
-const char* password = "<<wifi-passwort>>";
-WiFiClient client;
-
 Adafruit_PN532 nfc(PN532_SS);
+bool disconnected = true;
+
+String guidToString(uint8_t uid[], uint8_t uidLength) {
+
+    String guid = "";
+
+    for (int i = 0; i < uidLength; i++) {
+        String partial = String(uid[i], HEX);
+        
+        if (partial.length() < 2)
+            partial = "0" + partial;
+
+        guid += partial;
+        if (i < uidLength-1) {
+            guid += ":";
+        }
+    }
+
+    return guid;
+}
+
+bool sendGuidToServer(String guid) {
+    String url = server + guid;
+    Serial.println(url);
+    bool success = false;
+
+    if ((WiFiMulti.run() == WL_CONNECTED)) {
+
+        std::unique_ptr<BearSSL::WiFiClientSecure>client(new BearSSL::WiFiClientSecure);
+        client->setFingerprint(fingerprint);
+        
+        HTTPClient https;
+        if (https.begin(*client, url)) {
+            int httpCode = https.GET();
+            Serial.print("HTTP-Code ");
+            Serial.println(httpCode);
+
+            if ( httpCode > 0 && httpCode == HTTP_CODE_OK ) {
+                String payload = https.getString();
+                Serial.println(payload);
+                success = true;
+            } else {
+              Serial.printf("[HTTPS] get failed, error: %s\n", https.errorToString(httpCode).c_str());
+            }
+        }
+    
+        https.end(); 
+    }
+
+    return success;
+}
 
 void setup(void) {
   Serial.begin(9600);
@@ -39,34 +96,10 @@ void setup(void) {
   leds[0] = CRGB::Red;
   FastLED.show();
 
-  Wire.begin();
-  WiFi.begin(ssid, password);
+  WiFi.mode(WIFI_STA);
+  WiFiMulti.addAP(ssid, password);
 
-  while (WiFi.status() != WL_CONNECTED) {
-    leds[0] = CRGB::Black;
-    FastLED.show();
-    delay(100);
-    leds[0] = CRGB::Black;
-    FastLED.show();
-    delay(100);
-    leds[0] = CRGB::Black;
-    FastLED.show();
-    delay(100);
-    leds[0] = CRGB::Black;
-    FastLED.show();
-    delay(100);
-  }
-
-  Serial.println("");
-  Serial.print("Connected to ");
-  Serial.println(ssid);
-  Serial.print("IP address: ");
-  Serial.println(WiFi.localIP());
-
-  #ifndef ESP8266
-    while (!Serial); // for Leonardo/Micro/Zero
-  #endif
-
+  
   nfc.begin();
 
   uint32_t versiondata = nfc.getFirmwareVersion();
@@ -85,10 +118,9 @@ void setup(void) {
   Serial.println("Waiting for an ISO14443A Card ...");
 }
 
-
 void loop(void) {
 
-  while (WiFi.status() != WL_CONNECTED) {
+  while (WiFiMulti.run() != WL_CONNECTED) {
     leds[0] = CRGB::Black;
     FastLED.show();
     delay(100);
@@ -101,6 +133,14 @@ void loop(void) {
     leds[0] = CRGB::Black;
     FastLED.show();
     delay(100);
+
+    disconnected = true;
+  }
+
+  if (disconnected) {
+    Serial.print( "[WiFi] reconnected. IP: " );
+    Serial.println( WiFi.localIP() );
+    disconnected = false;
   }
 
 
@@ -114,13 +154,17 @@ void loop(void) {
   success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength);
   
   if (success) {
-    Serial.print("  UID Value: ");
-    nfc.PrintHex(uid, uidLength);
-    Serial.println("");
-
+      String guid = guidToString(uid, uidLength);
+      if (sendGuidToServer(guid)) {
+          leds[0] = CRGB::Green;
+          FastLED.show();
+          delay(1000);
+      } else {
+          leds[0] = CRGB::Red;
+          FastLED.show();
+          delay(1000);
+      }
     
-    leds[0] = CRGB::Green;
-    FastLED.show();
-    delay(1000);
+    
   }
 }
