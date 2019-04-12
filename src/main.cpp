@@ -26,6 +26,8 @@
 #define BRIGHTNESS  64
 #define LED_TYPE    WS2811
 #define COLOR_ORDER GRB
+#define ANIM_SPEED  25   // animation speed in ms
+#define ANIM_SCALE  64   // pulsing animation scaling
 
 const char* ssid = CONFIG_WIFI_SSID;
 const char* password = CONFIG_WIFI_PASSWORD;
@@ -66,6 +68,27 @@ void setColor(CRGB::HTMLColorCode color) {
   }
 
   FastLED.show();
+}
+
+uint32_t lastAnimStep = 0;
+uint8_t animCounter = 0;
+
+void animationStep() {
+  if(millis() - lastAnimStep >= ANIM_SPEED) {
+    lastAnimStep = millis();
+
+    uint8_t val = animCounter % ANIM_SCALE;                 // limit counter
+    val = val < (ANIM_SCALE / 2) ? val : ANIM_SCALE - val;  // map to up/down counting
+    val = map(val, 0, ANIM_SCALE / 2, 64, 255);             // map to full brightness
+
+    for(uint8_t i = 0; i < NUM_LEDS; i++) {
+      uint8_t hue = (animCounter + (255 / NUM_LEDS) * i) % 256; // hue rainbow
+      leds[i] = CHSV(hue, 255, val);
+    }
+
+    FastLED.show();
+    animCounter++;
+  }
 }
 
 int sendHttpsGet(String url) {
@@ -120,6 +143,8 @@ bool sendGuidToServer(String guid) {
               setColor(CRGB::Red);
               delay(500);
             }
+            setColor(CRGB::Black);
+            delay(1000);
         }
     
         https.end(); 
@@ -187,6 +212,8 @@ void loop(void) {
     delay(100);
 
     disconnected = true;
+
+    yield(); // feed WDT
   }
 
   if (disconnected) {
@@ -197,7 +224,7 @@ void loop(void) {
 
 
   
-  setColor(CRGB::Black);
+  //setColor(CRGB::Black);
 
   uint8_t success;
   uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
@@ -211,4 +238,6 @@ void loop(void) {
   }
 
   //sendHeartbeat();
+
+  animationStep();
 }
