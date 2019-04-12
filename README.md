@@ -14,5 +14,5 @@ A WS2811 LED is used to visualize the reading success.
 | D3  | WS2812 LED
 | D5  | SCK
 | D6  | MISO
-| D7  | SSEL
-| D8  | MOSI
+| D7  | MOSI
+| D8  | SSEL
