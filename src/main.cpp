@@ -9,7 +9,7 @@
 #include <ESP8266HTTPClient.h>
 #include <WiFiClientSecureBearSSL.h>
 
-#include <config.h>
+#include "config.h"
 
 
 // If using the breakout with SPI, define the pins for SPI communication.
@@ -102,6 +102,7 @@ bool sendGuidToServer(String guid) {
         setColor(CRGB::Blue);
 
         HTTPClient https;
+        https.setTimeout(5000);
         if (https.begin(*client, url)) {
             int httpCode = https.GET();
             Serial.print("HTTP-Code ");
@@ -143,7 +144,7 @@ bool sendHeartbeat() {
 }
 
 void setup(void) {
-  Serial.begin(9600);
+  Serial.begin(115200);
 
   FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection( TypicalLEDStrip );
   FastLED.setBrightness(  BRIGHTNESS );
@@ -202,7 +203,7 @@ void loop(void) {
   uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
   uint8_t uidLength;                        // Length of the UID (4 or 7 bytes depending on ISO14443A card type)
     
-  success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength);
+  success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength, 30);
   
   if (success) {
       String guid = guidToString(uid, uidLength);
