@@ -22,7 +22,7 @@
 #define PN532_RESET (3)
 
 #define LED_PIN     0
-#define NUM_LEDS    1
+#define NUM_LEDS    12
 #define BRIGHTNESS  64
 #define LED_TYPE    WS2811
 #define COLOR_ORDER GRB
@@ -30,12 +30,16 @@
 const char* ssid = CONFIG_WIFI_SSID;
 const char* password = CONFIG_WIFI_PASSWORD;
 const uint8_t fingerprint[20] = CONFIG_SSL_FINGERPRINT;
-const String server = CONFIG_BACKEND_URL;
+const String url_scan = CONFIG_BACKEND_URL;
+const String url_alive = CONFIG_BACKEND_URL_ALIVE;
+const String terminalId = CONFIG_TERMINAL_ID;
+const int heartbeat_intervall = CONFIG_HEARTBEAT_INTERVAL;
 
 ESP8266WiFiMulti WiFiMulti;
 CRGB leds[NUM_LEDS];
 Adafruit_PN532 nfc(PN532_SS);
 bool disconnected = true;
+ulong lastHeartbeat = 0;
 
 String guidToString(uint8_t uid[], uint8_t uidLength) {
 
@@ -56,8 +60,36 @@ String guidToString(uint8_t uid[], uint8_t uidLength) {
     return guid;
 }
 
+void setColor(CRGB::HTMLColorCode color) {
+  for (int i = 0; i < NUM_LEDS; i++) {
+    leds[i] = color;
+  }
+
+  FastLED.show();
+}
+
+int sendHttpsGet(String url) {
+    Serial.println(url);
+    int httpCode = 0;
+    
+    if ((WiFiMulti.run() == WL_CONNECTED)) {
+
+        std::unique_ptr<BearSSL::WiFiClientSecure>client(new BearSSL::WiFiClientSecure);
+        client->setFingerprint(fingerprint);
+        
+        HTTPClient https;
+        if (https.begin(*client, url)) {
+            httpCode = https.GET();
+        }
+    
+        https.end(); 
+    }
+
+    return httpCode;
+}
+
 bool sendGuidToServer(String guid) {
-    String url = server + guid;
+    String url = url_scan + guid;
     Serial.println(url);
     bool success = false;
 
@@ -66,6 +98,9 @@ bool sendGuidToServer(String guid) {
         std::unique_ptr<BearSSL::WiFiClientSecure>client(new BearSSL::WiFiClientSecure);
         client->setFingerprint(fingerprint);
         
+        
+        setColor(CRGB::Blue);
+
         HTTPClient https;
         if (https.begin(*client, url)) {
             int httpCode = https.GET();
@@ -76,12 +111,32 @@ bool sendGuidToServer(String guid) {
                 String payload = https.getString();
                 Serial.println(payload);
                 success = true;
+
+                setColor(CRGB::Green);
+                delay(500);
             } else {
               Serial.printf("[HTTPS] get failed, error: %s\n", https.errorToString(httpCode).c_str());
+              setColor(CRGB::Red);
+              delay(500);
             }
         }
     
         https.end(); 
+    }
+
+    return success;
+}
+
+bool sendHeartbeat() {
+    String url = url_alive + terminalId;
+    Serial.println(url);
+    bool success = false;
+    int httpCode = sendHttpsGet(url);
+
+    if ( httpCode == HTTP_CODE_OK ) {
+        success = true;
+    } else {
+      Serial.printf("[HTTPS] get failed, error: %i\n", httpCode);
     }
 
     return success;
@@ -121,17 +176,13 @@ void setup(void) {
 void loop(void) {
 
   while (WiFiMulti.run() != WL_CONNECTED) {
-    leds[0] = CRGB::Black;
-    FastLED.show();
+    setColor(CRGB::Red);
     delay(100);
-    leds[0] = CRGB::Black;
-    FastLED.show();
+    setColor(CRGB::Black);
     delay(100);
-    leds[0] = CRGB::Black;
-    FastLED.show();
+    setColor(CRGB::Red);
     delay(100);
-    leds[0] = CRGB::Black;
-    FastLED.show();
+    setColor(CRGB::Black);
     delay(100);
 
     disconnected = true;
@@ -144,8 +195,8 @@ void loop(void) {
   }
 
 
-  leds[0] = CRGB::Black;
-  FastLED.show();
+  
+  setColor(CRGB::Black);
 
   uint8_t success;
   uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
@@ -155,16 +206,8 @@ void loop(void) {
   
   if (success) {
       String guid = guidToString(uid, uidLength);
-      if (sendGuidToServer(guid)) {
-          leds[0] = CRGB::Green;
-          FastLED.show();
-          delay(1000);
-      } else {
-          leds[0] = CRGB::Red;
-          FastLED.show();
-          delay(1000);
-      }
-    
-    
+      sendGuidToServer(guid);
   }
+
+  //sendHeartbeat();
 }
