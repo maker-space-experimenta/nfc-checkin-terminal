@@ -31,7 +31,7 @@ extern animation_t currentAnimation;
 
 
 void initLeds();
-void animationLoop();
+void animationLoop(bool forceUpdate = false);
 
 void setAnimation(animation_t anim);
 void setAnimation(animation_t anim, uint16_t duration, bool backToPrevious = false);

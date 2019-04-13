@@ -36,8 +36,8 @@ void setColor(CRGB::HTMLColorCode color) {
     FastLED.show();
 }
 
-void animationLoop() {
-    if (millis() - lastAnimStep >= ANIM_SPEED) {
+void animationLoop(bool forceUpdate) {
+    if (millis() - lastAnimStep >= ANIM_SPEED || forceUpdate) {
         lastAnimStep = millis();
 
         // check for end of animation
@@ -80,7 +80,7 @@ void animationLoop() {
                 uint8_t progress = animCounter / 2;
                 // if animation done
                 if (progress >= NUM_LEDS) {
-                    setAnimation(ANIM_BLACK, 1000);
+                    setAnimation(ANIM_BLACK, 500);
                     break;
                 }
                 for (uint8_t i = 0; i < NUM_LEDS; i++) {
@@ -93,7 +93,7 @@ void animationLoop() {
                 uint8_t progress = animCounter / 2;
                 // if animation done
                 if (progress >= NUM_LEDS) {
-                    setAnimation(ANIM_BLACK, 1000);
+                    setAnimation(ANIM_BLACK, 500);
                     break;
                 }
                 for (uint8_t i = 0; i < NUM_LEDS; i++) {
@@ -106,7 +106,7 @@ void animationLoop() {
                 uint8_t val = animCounter < 10 ? animCounter : 20 - animCounter;
                 val *= (256 / 10);
                 if (animCounter >= 20) {
-                    setAnimation(ANIM_BLACK, 1000);
+                    setAnimation(ANIM_BLACK, 500);
                 }
                 for (uint8_t i = 0; i < NUM_LEDS; i++) {
                     leds[i] = CHSV(HUE_PURPLE, 255, val);

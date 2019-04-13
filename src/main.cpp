@@ -89,6 +89,7 @@ bool sendGuidToServer(String guid) {
         
         
         setAnimation(ANIM_CARD_PROCESSING);
+        animationLoop(true);
 
         HTTPClient https;
         https.setTimeout(5000);
@@ -142,6 +143,7 @@ void setup(void) {
   Serial.begin(115200);
 
   initLeds();
+  setAnimation(ANIM_CONNECTING);
 
   WiFi.mode(WIFI_STA);
   WiFiMulti.addAP(ssid, password);
@@ -168,9 +170,11 @@ void setup(void) {
 void loop(void) {
 
   while (WiFiMulti.run() != WL_CONNECTED) {
+    if(disconnected == false) { // only run once
+      setAnimation(ANIM_CONNECTING);
+    }
     disconnected = true;
 
-    setAnimation(ANIM_CONNECTING);
     animationLoop();
 
     yield(); // feed WDT
@@ -180,6 +184,7 @@ void loop(void) {
     disconnected = false;
     Serial.print( "[WiFi] reconnected. IP: " );
     Serial.println( WiFi.localIP() );
+    setAnimation(ANIM_IDLE);
   }
 
 
