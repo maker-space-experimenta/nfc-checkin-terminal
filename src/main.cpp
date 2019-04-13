@@ -37,7 +37,7 @@ const int heartbeat_intervall = CONFIG_HEARTBEAT_INTERVAL;
 ESP8266WiFiMulti WiFiMulti;
 PN532_SPI pn532spi(SPI, PN532_SS);
 PN532 nfc(pn532spi);
-bool disconnected = true;
+bool disconnected = false;
 ulong lastHeartbeat = 0;
 
 String guidToString(uint8_t uid[], uint8_t uidLength) {
@@ -145,7 +145,6 @@ void setup(void) {
   Serial.begin(115200);
 
   initLeds();
-  setAnimation(ANIM_CONNECTING);
 
   WiFi.mode(WIFI_STA);
   WiFiMulti.addAP(ssid, password);
@@ -174,6 +173,7 @@ void loop(void) {
   while (WiFiMulti.run() != WL_CONNECTED) {
     if(disconnected == false) { // only run once
       setAnimation(ANIM_CONNECTING);
+      nfc.setRFField(0, 0);   // disable NFC field
     }
     disconnected = true;
 
@@ -186,6 +186,7 @@ void loop(void) {
     disconnected = false;
     Serial.print( "[WiFi] reconnected. IP: " );
     Serial.println( WiFi.localIP() );
+    nfc.setRFField(0, 1);   // enable NFC field
     setAnimation(ANIM_IDLE);
   }
 
@@ -198,7 +199,9 @@ void loop(void) {
   
   if (success) {
       String guid = guidToString(uid, uidLength);
+      nfc.setRFField(0, 0);   // disable NFC field
       sendGuidToServer(guid);
+      nfc.setRFField(0, 1);   // enable NFC field
   }
 
   //sendHeartbeat();
