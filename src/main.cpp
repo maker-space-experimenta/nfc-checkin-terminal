@@ -1,7 +1,8 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include <SPI.h>
-#include <Adafruit_PN532.h>
+#include <PN532_SPI.h>
+#include <PN532.h>
 
 #include <ESP8266WiFi.h>
 #include <ESP8266WiFiMulti.h>
@@ -34,7 +35,8 @@ const String terminalId = CONFIG_TERMINAL_ID;
 const int heartbeat_intervall = CONFIG_HEARTBEAT_INTERVAL;
 
 ESP8266WiFiMulti WiFiMulti;
-Adafruit_PN532 nfc(PN532_SS);
+PN532_SPI pn532spi(SPI, PN532_SS);
+PN532 nfc(pn532spi);
 bool disconnected = true;
 ulong lastHeartbeat = 0;
 
