@@ -88,7 +88,7 @@ bool sendGuidToServer(String guid) {
         client->setFingerprint(fingerprint);
         
         
-        setColor(CRGB::Blue);
+        setAnimation(ANIM_CARD_PROCESSING);
 
         HTTPClient https;
         https.setTimeout(5000);
@@ -102,15 +102,19 @@ bool sendGuidToServer(String guid) {
                 Serial.println(payload);
                 success = true;
 
-                setColor(CRGB::Green);
-                delay(500);
+                if(payload.indexOf("added") > -1) {
+                  setAnimation(ANIM_CHECK_IN);
+                }
+                else if(payload.indexOf("removed") > -1) {
+                  setAnimation(ANIM_CHECK_OUT);
+                }
+                else if(payload.indexOf("unknown") > -1) {
+                  setAnimation(ANIM_UNKNOWN_CARD);
+                }
             } else {
               Serial.printf("[HTTPS] get failed, error: %s\n", https.errorToString(httpCode).c_str());
-              setColor(CRGB::Red);
-              delay(500);
+              setAnimation(ANIM_ERROR, 800);
             }
-            setColor(CRGB::Black);
-            delay(1000);
         }
     
         https.end(); 
@@ -164,29 +168,20 @@ void setup(void) {
 void loop(void) {
 
   while (WiFiMulti.run() != WL_CONNECTED) {
-    setColor(CRGB::Red);
-    delay(100);
-    setColor(CRGB::Black);
-    delay(100);
-    setColor(CRGB::Red);
-    delay(100);
-    setColor(CRGB::Black);
-    delay(100);
-
     disconnected = true;
+
+    setAnimation(ANIM_CONNECTING);
+    animationLoop();
 
     yield(); // feed WDT
   }
 
   if (disconnected) {
+    disconnected = false;
     Serial.print( "[WiFi] reconnected. IP: " );
     Serial.println( WiFi.localIP() );
-    disconnected = false;
   }
 
-
-  
-  //setColor(CRGB::Black);
 
   uint8_t success;
   uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID

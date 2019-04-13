@@ -11,13 +11,28 @@
 #define ANIM_SPEED  25 // animation speed in ms
 #define ANIM_SCALE  64 // pulsing animation scaling
 
+typedef enum animationStage {
+    ANIM_IDLE,
+    ANIM_CARD_PROCESSING,
+    ANIM_ERROR,
+    ANIM_CHECK_IN,
+    ANIM_CHECK_OUT,
+    ANIM_UNKNOWN_CARD,
+    ANIM_BLACK,
+    ANIM_CONNECTING,
+} animation_t;
+
+
 extern CRGB leds[NUM_LEDS];
 
 extern uint32_t lastAnimStep;
 extern uint8_t animCounter;
+extern animation_t currentAnimation;
 
 
 void initLeds();
 void animationLoop();
 
+void setAnimation(animation_t anim);
+void setAnimation(animation_t anim, uint16_t duration, bool backToPrevious = false);
 void setColor(CRGB::HTMLColorCode color);
